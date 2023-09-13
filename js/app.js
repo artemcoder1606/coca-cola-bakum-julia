@@ -3633,100 +3633,125 @@
             }));
         }
     }), 0);
-    class VideoPlayer {
-        constructor(triggers, overlay) {
-            this.btns = document.querySelectorAll(triggers);
-            this.overlay = document.querySelector(overlay);
-            try {
-                this.close = this.overlay.querySelectorAll(".close");
-            } catch (e) {}
-            this.lockPadding = document.querySelectorAll("[data-lp]");
-            this.scrollWidth = window.innerWidth - document.documentElement.clientWidth + "px";
-            this.body = document.body;
-            this.setTimeout = 800;
-            this.unlock = true;
-        }
-        bindTriggers() {
-            this.btns.forEach((btn => {
-                btn.addEventListener("click", (e => {
-                    e.preventDefault();
-                    this.overlay.classList.add("show");
-                    if (this.overlay) if (document.querySelector("iframe")) this.lockScroll(); else {
-                        this.path = btn.getAttribute("href");
-                        this.createPlayer(this.path);
-                        this.lockScroll();
+    window.addEventListener("load", (function(e) {
+        /*! mediabox v1.1.3 | (c) 2018 Pedro Rogerio | https://github.com/pinceladasdaweb/mediabox */
+        (function(root, factory) {
+            "use strict";
+            if (typeof define === "function" && define.amd) define([], factory); else if (typeof exports === "object") module.exports = factory(); else root.MediaBox = factory();
+        })(this, (function() {
+            "use strict";
+            var MediaBox = function(element, params) {
+                var default_params = {
+                    autoplay: "1"
+                };
+                params = params || 0;
+                if (!this || !(this instanceof MediaBox)) return new MediaBox(element, params);
+                if (!element) return false;
+                this.params = Object.assign(default_params, params);
+                this.selector = element instanceof NodeList ? element : document.querySelectorAll(element);
+                this.root = document.querySelector("body");
+                this.run();
+            };
+            MediaBox.prototype = {
+                run: function() {
+                    Array.prototype.forEach.call(this.selector, function(el) {
+                        el.addEventListener("click", function(e) {
+                            e.preventDefault();
+                            var link = this.parseUrl(el.getAttribute("href"));
+                            this.render(link);
+                            this.events();
+                        }.bind(this), false);
+                    }.bind(this));
+                    this.root.addEventListener("keyup", function(e) {
+                        if ((e.keyCode || e.which) === 27) this.close(this.root.querySelector(".mediabox-wrap"));
+                    }.bind(this), false);
+                },
+                template: function(s, d) {
+                    var p;
+                    for (p in d) if (d.hasOwnProperty(p)) s = s.replace(new RegExp("{" + p + "}", "g"), d[p]);
+                    return s;
+                },
+                parseUrl: function(url) {
+                    var matches, service = {};
+                    if (matches = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=)([^#\&\?]*).*/)) {
+                        service.provider = "youtube";
+                        service.id = matches[2];
+                    } else if (matches = url.match(/https?:\/\/(?:www\.)?vimeo.com\/(?:channels\/|groups\/([^\/]*)\/videos\/|album\/(\d+)\/video\/|)(\d+)(?:$|\/|\?)/)) {
+                        service.provider = "vimeo";
+                        service.id = matches[3];
+                    } else {
+                        service.provider = "Unknown";
+                        service.id = "";
                     }
-                }));
-            }));
-        }
-        lockScroll() {
-            this.body.classList.add("lock");
-            this.body.style.paddingRight = this.scrollWidth;
-            this.unlock = false;
-            if (this.lockPadding.length) this.lockPadding.forEach((item => {
-                item.style.paddingRight = this.scrollWidth;
-            }));
-            setTimeout((() => {
-                this.unlock = true;
-            }), this.setTimeout);
-        }
-        unlockScroll() {
-            setTimeout((() => {
-                if (this.lockPadding.length) this.lockPadding.forEach((item => {
-                    item.style.paddingRight = 0;
-                }));
-                this.body.classList.remove("lock");
-                this.body.style.paddingRight = 0;
-                this.unlock = true;
-            }), this.setTimeout);
-        }
-        bindCloseBtn() {
-            try {
-                this.close.forEach((btn => {
-                    btn.addEventListener("click", (() => {
-                        this.closePlayer();
-                    }));
-                }));
-            } catch (e) {}
-        }
-        bindCloseSpace() {
-            try {
-                this.overlay.addEventListener("click", (e => {
-                    const target = e.target;
-                    if (!target.closest("iframe")) this.closePlayer();
-                }));
-            } catch (e) {}
-        }
-        createPlayer(url) {
-            this.player = new YT.Player("frame", {
-                height: "100%",
-                width: "100%",
-                videoId: `${url}`
-            });
-        }
-        closePlayer() {
-            if (this.unlock) {
-                this.overlay.classList.remove("show");
-                setTimeout((() => {
-                    try {
-                        this.player.stopVideo();
-                    } catch (e) {}
-                }), this.setTimeout);
-                this.unlockScroll();
-            }
-        }
-        init() {
-            const tag = document.createElement("script");
-            tag.src = "https://www.youtube.com/iframe_api";
-            const firstScriptTag = document.getElementsByTagName("script")[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-            this.bindCloseBtn();
-            this.bindCloseSpace();
-            this.bindTriggers();
-        }
-    }
-    const player = new VideoPlayer(".button-video", ".overlay");
-    player.init();
+                    return service;
+                },
+                render: function(service) {
+                    var embedLink, lightbox, urlParams;
+                    if (service.provider === "youtube") embedLink = "https://www.youtube.com/embed/" + service.id; else if (service.provider === "vimeo") embedLink = "https://player.vimeo.com/video/" + service.id; else throw new Error("Invalid video URL");
+                    urlParams = this.serialize(this.params);
+                    lightbox = this.template('<div class="mediabox-wrap" role="dialog" aria-hidden="false"><div class="mediabox-content" role="document" tabindex="0"><span id="mediabox-esc" class="mediabox-close" aria-label="close" tabindex="1"></span><iframe src="{embed}{params}" frameborder="0" allowfullscreen></iframe></div></div>', {
+                        embed: embedLink,
+                        params: urlParams
+                    });
+                    this.lastFocusElement = document.activeElement;
+                    this.root.insertAdjacentHTML("beforeend", lightbox);
+                    document.body.classList.add("stop-scroll");
+                },
+                events: function() {
+                    var wrapper = document.querySelector(".mediabox-wrap");
+                    var content = document.querySelector(".mediabox-content");
+                    wrapper.addEventListener("click", function(e) {
+                        if (e.target && e.target.nodeName === "SPAN" && e.target.className === "mediabox-close" || e.target.nodeName === "DIV" && e.target.className === "mediabox-wrap" || e.target.className === "mediabox-content" && e.target.nodeName !== "IFRAME") this.close(wrapper);
+                    }.bind(this), false);
+                    document.addEventListener("focus", (function(e) {
+                        if (content && !content.contains(e.target)) {
+                            e.stopPropagation();
+                            content.focus();
+                        }
+                    }), true);
+                    content.addEventListener("keypress", function(e) {
+                        if (e.keyCode === 13) this.close(wrapper);
+                    }.bind(this), false);
+                },
+                close: function(el) {
+                    if (el === null) return true;
+                    var timer = null;
+                    if (timer) clearTimeout(timer);
+                    el.classList.add("mediabox-hide");
+                    timer = setTimeout(function() {
+                        var el = document.querySelector(".mediabox-wrap");
+                        if (el !== null) {
+                            document.body.classList.remove("stop-scroll");
+                            this.root.removeChild(el);
+                            this.lastFocusElement.focus();
+                        }
+                    }.bind(this), 500);
+                },
+                serialize: function(obj) {
+                    return "?" + Object.keys(obj).reduce((function(a, k) {
+                        a.push(k + "=" + encodeURIComponent(obj[k]));
+                        return a;
+                    }), []).join("&");
+                }
+            };
+            return MediaBox;
+        }));
+        if (typeof Object.assign != "function") Object.defineProperty(Object, "assign", {
+            value: function assign(target, varArgs) {
+                "use strict";
+                if (target == null) throw new TypeError("Cannot convert undefined or null to object");
+                var to = Object(target);
+                for (var index = 1; index < arguments.length; index++) {
+                    var nextSource = arguments[index];
+                    if (nextSource != null) for (var nextKey in nextSource) if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) to[nextKey] = nextSource[nextKey];
+                }
+                return to;
+            },
+            writable: true,
+            configurable: true
+        });
+        MediaBox(".mediabox");
+    }));
     document.addEventListener("click", (e => {
         const target = e.target;
         if (target.closest(".search-header__button")) document.querySelector(".actions-header__form").classList.toggle("_show");
